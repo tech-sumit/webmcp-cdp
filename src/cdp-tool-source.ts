@@ -3,7 +3,7 @@ import type {
   ToolSource,
   ToolSourceConfig,
   DiscoveredTool,
-} from "@anthropic/ai-inspector-types";
+} from "@tech-sumit/ai-inspector-types";
 import { TargetManager } from "./target-manager.js";
 
 // chrome-remote-interface types are imperfect; use module-level type alias

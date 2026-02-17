@@ -1,5 +1,5 @@
 import type CDP from "chrome-remote-interface";
-import type { DiscoveredTool } from "@anthropic/ai-inspector-types";
+import type { DiscoveredTool } from "@tech-sumit/ai-inspector-types";
 
 export interface ManagedTarget {
   id: string;

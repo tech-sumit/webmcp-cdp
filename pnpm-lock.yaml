@@ -8,7 +8,7 @@ importers:
 
   .:
     dependencies:
-      '@anthropic/ai-inspector-types':
+      '@tech-sumit/ai-inspector-types':
         specifier: file:../ai-inspector-types
         version: file:../ai-inspector-types
       chrome-remote-interface:
@@ -38,9 +38,6 @@ importers:
         version: 3.2.4
 
 packages:
-
-  '@anthropic/ai-inspector-types@file:../ai-inspector-types':
-    resolution: {directory: ../ai-inspector-types, type: directory}
 
   '@esbuild/aix-ppc64@0.27.3':
     resolution: {integrity: sha512-9fJMTNFTWZMh5qwrBItuziu834eOCUcEqymSH7pY+zoMVEZg3gcPuBNxH1EvfVYe9h0x/Ptw8KBzv7qxb7l8dg==}
@@ -389,6 +386,9 @@ packages:
     resolution: {integrity: sha512-mxRFDdHIWRxg3UfIIAwCm6NzvxG0jDX/wBN6KsQFTvKFqqg9vTrWUE68qEjHt19A5wwx5X5aUi2zuZT7YR0jrA==}
     cpu: [x64]
     os: [win32]
+
+  '@tech-sumit/ai-inspector-types@file:../ai-inspector-types':
+    resolution: {directory: ../ai-inspector-types, type: directory}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -1076,8 +1076,6 @@ packages:
 
 snapshots:
 
-  '@anthropic/ai-inspector-types@file:../ai-inspector-types': {}
-
   '@esbuild/aix-ppc64@0.27.3':
     optional: true
 
@@ -1301,6 +1299,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.57.1':
     optional: true
+
+  '@tech-sumit/ai-inspector-types@file:../ai-inspector-types': {}
 
   '@types/chai@5.2.3':
     dependencies:

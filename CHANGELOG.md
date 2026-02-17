@@ -10,7 +10,7 @@
   - Tool execution via `Runtime.evaluate` with `awaitPromise: true` on `modelContextTesting.executeTool()`
   - Change detection via `Runtime.addBinding` + `registerToolsChangedCallback()`
 - **TargetManager**: Multi-tab tool tracking, each tab maintains its own tool set
-- Implements `ToolSource` interface from `@anthropic/ai-inspector-types`
+- Implements `ToolSource` interface from `@tech-sumit/ai-inspector-types`
 
 ### Bug fixes
 

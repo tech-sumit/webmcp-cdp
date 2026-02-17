@@ -1,5 +1,5 @@
 {
-  "name": "@anthropic/webmcp-cdp",
+  "name": "@tech-sumit/webmcp-cdp",
   "version": "0.1.0",
   "description": "Node.js library for WebMCP tool discovery and execution via Chrome DevTools Protocol",
   "type": "module",
@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "chrome-remote-interface": "^0.34.0",
-    "@anthropic/ai-inspector-types": "file:../ai-inspector-types"
+    "@tech-sumit/ai-inspector-types": "file:../ai-inspector-types"
   },
   "devDependencies": {
     "@types/chrome-remote-interface": "^0.31.14",

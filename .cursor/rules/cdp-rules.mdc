@@ -6,7 +6,7 @@ globs: ["**/*.ts"]
 # webmcp-cdp Rules
 
 - Uses chrome-remote-interface for CDP, NOT Playwright.
-- Implements the ToolSource interface from @anthropic/ai-inspector-types.
+- Implements the ToolSource interface from @tech-sumit/ai-inspector-types.
 - Tool discovery calls `navigator.modelContextTesting.listTools()` via `Runtime.evaluate`.
 - Tool execution calls `navigator.modelContextTesting.executeTool(name, args)` via `Runtime.evaluate`.
 - Change detection uses `Runtime.addBinding("__webmcpToolsChanged")` + `Runtime.bindingCalled` event.

@@ -1,4 +1,4 @@
-# @anthropic/webmcp-cdp
+# @tech-sumit/webmcp-cdp
 
 A standalone Node.js library for discovering and executing [WebMCP](https://github.com/nicholasgasior/nicholasgasior.github.io) tools in Chrome via the Chrome DevTools Protocol. Think "Playwright for WebMCP" — without Playwright.
 
@@ -13,13 +13,13 @@ chrome --remote-debugging-port=9222 --enable-features=WebMCPTesting
 ## Installation
 
 ```bash
-pnpm add @anthropic/webmcp-cdp
+pnpm add @tech-sumit/webmcp-cdp
 ```
 
 ## Usage
 
 ```typescript
-import { CdpToolSource } from "@anthropic/webmcp-cdp";
+import { CdpToolSource } from "@tech-sumit/webmcp-cdp";
 
 const source = new CdpToolSource();
 await source.connect({ host: "localhost", port: 9222 });
@@ -47,7 +47,7 @@ await source.disconnect();
 
 ### `CdpToolSource`
 
-Implements the `ToolSource` interface from `@anthropic/ai-inspector-types`.
+Implements the `ToolSource` interface from `@tech-sumit/ai-inspector-types`.
 
 | Method | Description |
 |--------|-------------|

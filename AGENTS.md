@@ -4,7 +4,7 @@ Node.js library for WebMCP tool discovery/execution via Chrome DevTools Protocol
 
 ## Key patterns
 - Uses chrome-remote-interface (NOT Playwright) for CDP
-- ToolSource interface from @anthropic/ai-inspector-types
+- ToolSource interface from @tech-sumit/ai-inspector-types
 - Tool discovery: Runtime.evaluate -> modelContextTesting.listTools()
 - Tool execution: Runtime.evaluate -> modelContextTesting.executeTool(name, args)
 - Change detection: Runtime.addBinding + bindingCalled event

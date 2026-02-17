@@ -7,4 +7,4 @@ export type {
   ToolSource,
   ToolSourceConfig,
   DiscoveredTool,
-} from "@anthropic/ai-inspector-types";
+} from "@tech-sumit/ai-inspector-types";
