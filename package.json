@@ -29,6 +29,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write 'src/**/*.ts'",
+    "prepare": "tsup",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
