@@ -69,7 +69,7 @@ describe("CdpToolSource", () => {
       "searchFlights",
       '{"from":"SFO"}',
     );
-    expect(result).toBe('{"flights":[]}');
+    expect(result).toEqual([{ type: "text", text: '{"flights":[]}' }]);
   });
 
   it("should throw when calling unknown tool", async () => {

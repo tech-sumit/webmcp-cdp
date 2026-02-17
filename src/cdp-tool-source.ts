@@ -2,6 +2,7 @@ import CDP from "chrome-remote-interface";
 import type {
   ToolSource,
   ToolSourceConfig,
+  ToolCallResultContent,
   DiscoveredTool,
 } from "@tech-sumit/ai-inspector-types";
 import { TargetManager } from "./target-manager.js";
@@ -53,9 +54,24 @@ export class CdpToolSource implements ToolSource {
     this.connected = true;
   }
 
+  /**
+   * The tool discovery script injected into each page context.
+   * Registers a change callback so future tool changes trigger the
+   * `__webmcpToolsChanged` binding, and returns the current tools.
+   */
+  private static readonly DISCOVERY_SCRIPT = `(() => {
+    const mct = navigator.modelContextTesting;
+    if (!mct) return JSON.stringify([]);
+    mct.registerToolsChangedCallback(() => {
+      __webmcpToolsChanged(JSON.stringify(mct.listTools()));
+    });
+    return JSON.stringify(mct.listTools());
+  })()`;
+
   private async attachToTarget(target: CDP.Target): Promise<void> {
     const client: CDPClient = await CDP({ target } as CDP.Options);
     await client.Runtime.enable();
+    await client.Page.enable();
 
     // Set up binding for tool change notifications.
     // When the page calls __webmcpToolsChanged(payload), the
@@ -78,17 +94,48 @@ export class CdpToolSource implements ToolSource {
       },
     );
 
-    // Initial tool discovery — same pattern as model-context-tool-inspector.
-    // Registers a change callback so future tool changes trigger the binding.
+    // Re-discover tools after every navigation (the old JS context is destroyed).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (client as any).on(
+      "Page.frameNavigated",
+      async (params: { frame: { parentId?: string } }) => {
+        // Only handle top-level frame navigations
+        if (params.frame.parentId) return;
+
+        // Clear tools immediately — old page context is gone
+        this.targetManager.updateTools(target.id, []);
+        this.notifyChange();
+
+        // Wait briefly for the new page to load and register tools
+        await new Promise((r) => setTimeout(r, 1000));
+
+        // Re-add the binding (it was lost with the old context)
+        try {
+          await client.Runtime.addBinding({ name: "__webmcpToolsChanged" });
+        } catch {
+          // Binding may already exist if Chrome persists it
+        }
+
+        // Re-run discovery in the new page context
+        try {
+          const { result } = await client.Runtime.evaluate({
+            expression: CdpToolSource.DISCOVERY_SCRIPT,
+            returnByValue: true,
+          });
+          const tools: DiscoveredTool[] = JSON.parse(
+            result.value as string,
+          );
+          this.targetManager.updateTools(target.id, tools);
+          this.notifyChange();
+        } catch {
+          // Page may not have modelContextTesting yet
+        }
+      },
+    );
+
+    // Initial tool discovery
     const { result } = await client.Runtime.evaluate({
-      expression: `(() => {
-        const mct = navigator.modelContextTesting;
-        if (!mct) return JSON.stringify([]);
-        mct.registerToolsChangedCallback(() => {
-          __webmcpToolsChanged(JSON.stringify(mct.listTools()));
-        });
-        return JSON.stringify(mct.listTools());
-      })()`,
+      expression: CdpToolSource.DISCOVERY_SCRIPT,
       returnByValue: true,
     });
 
@@ -120,12 +167,12 @@ export class CdpToolSource implements ToolSource {
    *
    * @param name - Tool name
    * @param inputArguments - JSON-encoded input (DOMString per WebMCP spec)
-   * @returns JSON-encoded result, or null for cross-document navigation
+   * @returns Array of content blocks (text results from WebMCP tool execution)
    */
   async callTool(
     name: string,
     inputArguments: string,
-  ): Promise<string | null> {
+  ): Promise<ToolCallResultContent[]> {
     const target = this.targetManager.findTargetForTool(name);
     if (!target) {
       throw new Error(
@@ -152,7 +199,8 @@ export class CdpToolSource implements ToolSource {
       throw new Error(msg);
     }
 
-    return (response.result.value as string) ?? null;
+    const value = (response.result.value as string) ?? null;
+    return [{ type: "text", text: value ?? "null" }];
   }
 
   onToolsChanged(cb: (tools: DiscoveredTool[]) => void): void {

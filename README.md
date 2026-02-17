@@ -1,6 +1,6 @@
 # @tech-sumit/webmcp-cdp
 
-A standalone Node.js library for discovering and executing [WebMCP](https://github.com/nicholasgasior/nicholasgasior.github.io) tools in Chrome via the Chrome DevTools Protocol. Think "Playwright for WebMCP" — without Playwright.
+A standalone Node.js library for discovering and executing WebMCP tools in Chrome via the Chrome DevTools Protocol. Think "Playwright for WebMCP" — without Playwright.
 
 ## Requirements
 
