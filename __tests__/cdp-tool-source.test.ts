@@ -18,6 +18,10 @@ vi.mock("chrome-remote-interface", () => {
         },
       }),
     },
+    Page: {
+      enable: vi.fn().mockResolvedValue(undefined),
+      on: vi.fn(),
+    },
     on: vi.fn(),
     close: vi.fn().mockResolvedValue(undefined),
   };
