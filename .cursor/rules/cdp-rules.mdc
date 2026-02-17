@@ -1,0 +1,15 @@
+---
+description: Rules for webmcp-cdp package
+globs: ["**/*.ts"]
+---
+
+# webmcp-cdp Rules
+
+- Uses chrome-remote-interface for CDP, NOT Playwright.
+- Implements the ToolSource interface from @anthropic/ai-inspector-types.
+- Tool discovery calls `navigator.modelContextTesting.listTools()` via `Runtime.evaluate`.
+- Tool execution calls `navigator.modelContextTesting.executeTool(name, args)` via `Runtime.evaluate`.
+- Change detection uses `Runtime.addBinding("__webmcpToolsChanged")` + `Runtime.bindingCalled` event.
+- All tool arguments and results are DOMString (JSON-encoded strings), per WebMCP spec.
+- Multi-tab support: iterate `CDP.List()` targets, attach to each page type target.
+- CdpToolSource delegates target tracking to TargetManager for clean separation.
