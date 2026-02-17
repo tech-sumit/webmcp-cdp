@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "chrome-remote-interface": "^0.34.0",
-    "@tech-sumit/ai-inspector-types": "file:../ai-inspector-types"
+    "@tech-sumit/ai-inspector-types": "^0.2.0"
   },
   "devDependencies": {
     "@types/chrome-remote-interface": "^0.31.14",
