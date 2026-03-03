@@ -62,10 +62,16 @@ export class CdpToolSource implements ToolSource {
   private static readonly DISCOVERY_SCRIPT = `(() => {
     const mct = navigator.modelContextTesting;
     if (!mct) return JSON.stringify([]);
-    mct.registerToolsChangedCallback(() => {
-      __webmcpToolsChanged(JSON.stringify(mct.listTools()));
+    const mapTool = (t) => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema,
+      ...(t.readOnlyHint != null ? { readOnlyHint: t.readOnlyHint } : {}),
     });
-    return JSON.stringify(mct.listTools());
+    mct.registerToolsChangedCallback(() => {
+      __webmcpToolsChanged(JSON.stringify(mct.listTools().map(mapTool)));
+    });
+    return JSON.stringify(mct.listTools().map(mapTool));
   })()`;
 
   private async attachToTarget(target: CDP.Target): Promise<void> {
