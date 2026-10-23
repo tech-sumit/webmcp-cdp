@@ -174,6 +174,14 @@ describe("CdpToolSource (CDP WebMCP domain)", () => {
         return {};
       }
       if (method === "WebMCP.invokeTool") return { invocationId: "inv1" };
+      if (method === "Page.getFrameTree") {
+        return {
+          frameTree: {
+            frame: { id: "main", securityOrigin: "https://example.com" },
+            childFrames: [{ frame: { id: "frame1", securityOrigin: "https://widgets.example" } }],
+          },
+        };
+      }
       return {};
     });
     source = new CdpToolSource();
@@ -189,6 +197,7 @@ describe("CdpToolSource (CDP WebMCP domain)", () => {
     expect(tools[0]).toMatchObject({
       name: "book_table",
       frameId: "frame1",
+      origin: "https://widgets.example",
       inputSchema: JSON.stringify(cdpTool.inputSchema),
       readOnlyHint: false,
       annotations: {
@@ -260,9 +269,30 @@ describe("CdpToolSource (CDP WebMCP domain)", () => {
 
     controller.abort();
     expect(mockClient.send).toHaveBeenCalledWith("WebMCP.cancelInvocation", { invocationId: "inv1" });
+    // Spec: rejects with the abort reason right away, without waiting for the page
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
 
+    // The late Canceled response is dropped rather than parked as an early response
     handler<unknown>("WebMCP.toolResponded")({ invocationId: "inv1", status: "Canceled" });
-    await expect(pending).rejects.toThrow("canceled");
+    expect(
+      (source as unknown as { earlyResponses: Map<string, unknown> }).earlyResponses.size,
+    ).toBe(0);
+  });
+
+  it("should record the origin of frames that navigate later", async () => {
+    await source.connect();
+    await Promise.resolve();
+
+    handler<{ frame: unknown }>("Page.frameNavigated")({
+      frame: { id: "frame2", parentId: "main", securityOrigin: "https://maps.example" },
+    });
+    handler<{ tools: unknown[] }>("WebMCP.toolsAdded")({
+      tools: [{ name: "show_map", description: "Show a map", frameId: "frame2" }],
+    });
+
+    expect(source.listTools().find((t) => t.name === "show_map")?.origin).toBe(
+      "https://maps.example",
+    );
   });
 });
 

@@ -42,11 +42,20 @@ interface CdpToolResponded {
 
 interface PendingInvocation {
   resolve: (value: string) => void;
-  reject: (err: Error) => void;
+  reject: (reason: unknown) => void;
 }
 
-/** Map a CDP `WebMCP.Tool` to a discovered tool. */
-export function fromCdpTool(t: CdpWebMCPTool): WebMCPDiscoveredTool {
+/** The parts of a CDP `Page.FrameTree` used to map frames to origins. */
+interface CdpFrameTree {
+  frame: { id: string; securityOrigin?: string };
+  childFrames?: CdpFrameTree[];
+}
+
+/**
+ * Map a CDP `WebMCP.Tool` to a discovered tool. `origin` is the registering
+ * frame's security origin, which `WebMCP.Tool` itself does not carry.
+ */
+export function fromCdpTool(t: CdpWebMCPTool, origin?: string): WebMCPDiscoveredTool {
   const a = t.annotations;
   const annotations: WebMCPToolAnnotations | undefined = a
     ? {
@@ -62,6 +71,8 @@ export function fromCdpTool(t: CdpWebMCPTool): WebMCPDiscoveredTool {
     description: t.description,
     inputSchema: t.inputSchema ? JSON.stringify(t.inputSchema) : "",
     frameId: t.frameId,
+    // Spec: agents should be shown each tool's origin to avoid confusion.
+    ...(origin && { origin }),
     ...(t.backendNodeId != null && { backendNodeId: t.backendNodeId }),
     ...(annotations && { annotations, readOnlyHint: annotations.readOnlyHint }),
   };
@@ -96,6 +107,8 @@ export class CdpToolSource implements ToolSource {
   private pendingInvocations = new Map<string, PendingInvocation>();
   /** `toolResponded` events that arrived before `invokeTool` returned. */
   private earlyResponses = new Map<string, CdpToolResponded>();
+  /** Invocations the caller aborted; their late `toolResponded` is dropped. */
+  private abortedInvocations = new Set<string>();
 
   async connect(config: ToolSourceConfig = {}): Promise<void> {
     this.config = {
@@ -188,7 +201,11 @@ export class CdpToolSource implements ToolSource {
   }
 
   /** Try to enable the native CDP WebMCP domain. Returns false if unsupported. */
-  private async enableCdpDomain(client: CDPClient, targetId: string): Promise<boolean> {
+  private async enableCdpDomain(
+    client: CDPClient,
+    targetId: string,
+    frameOrigins: Map<string, string>,
+  ): Promise<boolean> {
     const tools = new Map<string, WebMCPDiscoveredTool>();
     this.cdpTools.set(targetId, tools);
     const sync = () => {
@@ -200,7 +217,7 @@ export class CdpToolSource implements ToolSource {
     const c = client as any;
     c.on("WebMCP.toolsAdded", (params: { tools: CdpWebMCPTool[] }) => {
       for (const t of params.tools) {
-        tools.set(`${t.frameId}\u0000${t.name}`, fromCdpTool(t));
+        tools.set(`${t.frameId}\u0000${t.name}`, fromCdpTool(t, frameOrigins.get(t.frameId)));
       }
       sync();
     });
@@ -224,6 +241,7 @@ export class CdpToolSource implements ToolSource {
   }
 
   private settleInvocation(params: CdpToolResponded): void {
+    if (this.abortedInvocations.delete(params.invocationId)) return;
     const pending = this.pendingInvocations.get(params.invocationId);
     if (!pending) {
       this.earlyResponses.set(params.invocationId, params);
@@ -278,14 +296,32 @@ export class CdpToolSource implements ToolSource {
       mode: "none",
     });
 
-    if (await this.enableCdpDomain(client, target.id)) {
+    // Frame origins, so CDP-discovered tools carry `origin` like `RegisteredTool`
+    const frameOrigins = new Map<string, string>();
+    try {
+      const { frameTree } = (await (client as any).send("Page.getFrameTree")) as {
+        frameTree: CdpFrameTree;
+      };
+      const walk = (node: CdpFrameTree) => {
+        if (node.frame.securityOrigin) frameOrigins.set(node.frame.id, node.frame.securityOrigin);
+        node.childFrames?.forEach(walk);
+      };
+      walk(frameTree);
+    } catch {
+      // Origins are best-effort
+    }
+
+    if (await this.enableCdpDomain(client, target.id, frameOrigins)) {
       const managed = this.targetManager.get(target.id);
       if (managed) managed.mode = "cdp";
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (client as any).on(
         "Page.frameNavigated",
-        (params: { frame: { id: string; parentId?: string } }) => {
+        (params: { frame: { id: string; parentId?: string; securityOrigin?: string } }) => {
+          if (params.frame.securityOrigin) {
+            frameOrigins.set(params.frame.id, params.frame.securityOrigin);
+          }
           // Drop tools of the navigated frame; the new document re-registers
           // and arrives via WebMCP.toolsAdded.
           const tools = this.cdpTools.get(target.id);
@@ -460,12 +496,21 @@ export class CdpToolSource implements ToolSource {
     }
 
     if (signal) {
+      // Spec: executeTool() rejects with the signal's abort reason as soon as
+      // it aborts, then cancels the pending execution in the page.
       const onAbort = () => {
+        const pending = this.pendingInvocations.get(invocationId);
+        if (!pending) return;
+        this.pendingInvocations.delete(invocationId);
+        this.abortedInvocations.add(invocationId);
+        pending.reject(signal.reason);
         c.send("WebMCP.cancelInvocation", { invocationId }).catch(() => {
           // Invocation may already have completed
         });
       };
       signal.addEventListener("abort", onAbort, { once: true });
+      // The signal may have aborted while `invokeTool` was in flight
+      if (signal.aborted) onAbort();
       result.finally(() => signal.removeEventListener("abort", onAbort)).catch(() => {});
     }
 
@@ -482,6 +527,7 @@ export class CdpToolSource implements ToolSource {
     }
     this.pendingInvocations.clear();
     this.earlyResponses.clear();
+    this.abortedInvocations.clear();
     this.cdpTools.clear();
     await this.targetManager.disconnectAll();
     this.changeListeners.clear();

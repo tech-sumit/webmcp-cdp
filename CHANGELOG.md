@@ -7,7 +7,8 @@ Aligns with the October 2026 WebMCP draft and Chromium, which removed `navigator
 ### Features
 
 - **Native CDP `WebMCP` domain**: Discovery uses `WebMCP.enable` with `WebMCP.toolsAdded` / `WebMCP.toolsRemoved`; execution uses `WebMCP.invokeTool` and resolves on the matching `WebMCP.toolResponded` event. Tools from iframes are tracked by `frameId`
-- **Cancellation**: `callTool(name, args, { signal })` sends `WebMCP.cancelInvocation` when the signal aborts
+- **Cancellation**: `callTool(name, args, { signal })` rejects with the signal's abort reason as soon as it aborts (as the spec's `executeTool()` does) and sends `WebMCP.cancelInvocation`
+- **Tool origins in CDP mode**: `WebMCP.Tool` has no origin, so each tool's `origin` is filled in from its frame's security origin (`Page.getFrameTree` and `Page.frameNavigated`). The spec expects agents to be shown each tool's origin
 - **`document.modelContext` fallback**: When the CDP domain is unavailable, discovery uses `document.modelContext.getTools()` plus the `toolchange` event and execution uses `executeTool(registeredTool, inputObject)`. The legacy `navigator.modelContextTesting` path remains for Chrome ≤151
 - **Richer tool metadata**: New `WebMCPDiscoveredTool` type (a superset of `DiscoveredTool`) with `title`, full `annotations` (`readOnlyHint`, `untrustedContentHint`, `consequentialHint`, `debugging`, plus Chromium's `autosubmit`), `origin`, `frameId` and `backendNodeId`
 - `fromCdpTool()` helper exported to map CDP `WebMCP.Tool` objects
