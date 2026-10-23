@@ -7,9 +7,11 @@ globs: ["**/*.ts"]
 
 - Uses chrome-remote-interface for CDP, NOT Playwright.
 - Implements the ToolSource interface from @tech-sumit/ai-inspector-types.
-- Tool discovery calls `navigator.modelContextTesting.listTools()` via `Runtime.evaluate`.
-- Tool execution calls `navigator.modelContextTesting.executeTool(name, args)` via `Runtime.evaluate`.
-- Change detection uses `Runtime.addBinding("__webmcpToolsChanged")` + `Runtime.bindingCalled` event.
-- All tool arguments and results are DOMString (JSON-encoded strings), per WebMCP spec.
+- Tool discovery prefers the native CDP `WebMCP` domain: `WebMCP.enable` + `WebMCP.toolsAdded` / `WebMCP.toolsRemoved` (tools keyed by frameId + name).
+- Tool execution in CDP mode: `WebMCP.invokeTool({frameId, toolName, input})` → wait for `WebMCP.toolResponded` with the same `invocationId`; aborting calls `WebMCP.cancelInvocation`.
+- Fallback (no CDP domain): `Runtime.evaluate` of `document.modelContext.getTools()` / `executeTool(tool, inputObject)` with the `toolchange` event, then legacy `navigator.modelContextTesting` (removed in Chrome 152+).
+- Fallback change detection uses `Runtime.addBinding("__webmcpToolsChanged")` + `Runtime.bindingCalled` event.
+- `DiscoveredTool.inputSchema` stays a JSON string for compatibility; `WebMCPDiscoveredTool` adds `title`, `annotations`, `origin`, `frameId`.
+- Tool arguments are passed as JSON strings and parsed to objects; results are the JSON string `executeTool()` resolves with.
 - Multi-tab support: iterate `CDP.List()` targets, attach to each page type target.
 - CdpToolSource delegates target tracking to TargetManager for clean separation.
