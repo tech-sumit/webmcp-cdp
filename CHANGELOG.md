@@ -11,6 +11,7 @@ Aligns with the October 2026 WebMCP draft and Chromium, which removed `navigator
 - **`document.modelContext` fallback**: When the CDP domain is unavailable, discovery uses `document.modelContext.getTools()` plus the `toolchange` event and execution uses `executeTool(registeredTool, inputObject)`. The legacy `navigator.modelContextTesting` path remains for Chrome ≤151
 - **Richer tool metadata**: New `WebMCPDiscoveredTool` type (a superset of `DiscoveredTool`) with `title`, full `annotations` (`readOnlyHint`, `untrustedContentHint`, `consequentialHint`, `debugging`, plus Chromium's `autosubmit`), `origin`, `frameId` and `backendNodeId`
 - `fromCdpTool()` helper exported to map CDP `WebMCP.Tool` objects
+- **Chrome 153 compatibility**: the fallback accepts `inputSchema` as either an object (spec) or a JSON string (current Chrome), and retries `executeTool()` with a JSON string input when Chrome rejects the spec's object form. Verified end to end against Chrome 153.0.8010.12 in both CDP and `document.modelContext` modes
 
 ### Spec alignment
 

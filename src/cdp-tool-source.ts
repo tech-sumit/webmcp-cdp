@@ -133,7 +133,8 @@ export class CdpToolSource implements ToolSource {
       const mapTool = (t) => ({
         name: t.name,
         description: t.description,
-        inputSchema: t.inputSchema === undefined ? "" : JSON.stringify(t.inputSchema),
+        // Spec: object. Chrome 153 still returns the JSON string.
+        inputSchema: t.inputSchema == null ? "" : typeof t.inputSchema === "string" ? t.inputSchema : JSON.stringify(t.inputSchema),
         ...(t.title ? { title: t.title } : {}),
         ...(t.origin ? { origin: t.origin } : {}),
         ...(t.annotations ? { annotations: t.annotations, readOnlyHint: !!t.annotations.readOnlyHint } : {}),
@@ -172,7 +173,17 @@ export class CdpToolSource implements ToolSource {
       const mc = document.modelContext;
       const tool = (await mc.getTools()).find((t) => t.name === ${JSON.stringify(name)});
       if (!tool) throw new DOMException("Tool not found", "NotFoundError");
-      return mc.executeTool(tool, JSON.parse(${JSON.stringify(inputArguments)}));
+      const json = ${JSON.stringify(inputArguments || "{}")};
+      try {
+        // Spec: executeTool(tool, inputObject)
+        return await mc.executeTool(tool, JSON.parse(json));
+      } catch (e) {
+        // Chrome <= 153 still expects the input as a JSON string
+        if (e && (e.name === "TypeError" || /parse input/i.test(e.message))) {
+          return mc.executeTool(tool, json);
+        }
+        throw e;
+      }
     })()`;
   }
 
