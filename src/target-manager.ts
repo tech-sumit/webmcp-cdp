@@ -1,12 +1,14 @@
 import type CDP from "chrome-remote-interface";
-import type { DiscoveredTool } from "@tech-sumit/ai-inspector-types";
+import type { DiscoveryMode, WebMCPDiscoveredTool } from "./types.js";
 
 export interface ManagedTarget {
   id: string;
   url: string;
   title: string;
   client: CDP.Client;
-  tools: DiscoveredTool[];
+  tools: WebMCPDiscoveredTool[];
+  /** How tools are discovered/executed in this target (defaults to "none"). */
+  mode?: DiscoveryMode;
 }
 
 /**
@@ -30,7 +32,7 @@ export class TargetManager {
     return this.targets.get(id);
   }
 
-  updateTools(id: string, tools: DiscoveredTool[]): void {
+  updateTools(id: string, tools: WebMCPDiscoveredTool[]): void {
     const target = this.targets.get(id);
     if (target) {
       target.tools = tools;
@@ -38,8 +40,8 @@ export class TargetManager {
   }
 
   /** Get all tools from all connected targets. */
-  allTools(): DiscoveredTool[] {
-    const tools: DiscoveredTool[] = [];
+  allTools(): WebMCPDiscoveredTool[] {
+    const tools: WebMCPDiscoveredTool[] = [];
     for (const target of this.targets.values()) {
       tools.push(...target.tools);
     }

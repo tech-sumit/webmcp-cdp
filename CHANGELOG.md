@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0 (2026-10-23)
+
+Aligns with the October 2026 WebMCP draft and Chromium, which removed `navigator.modelContextTesting` in Chrome 152.
+
+### Features
+
+- **Native CDP `WebMCP` domain**: Discovery uses `WebMCP.enable` with `WebMCP.toolsAdded` / `WebMCP.toolsRemoved`; execution uses `WebMCP.invokeTool` and resolves on the matching `WebMCP.toolResponded` event. Tools from iframes are tracked by `frameId`
+- **Cancellation**: `callTool(name, args, { signal })` rejects with the signal's abort reason as soon as it aborts (as the spec's `executeTool()` does) and sends `WebMCP.cancelInvocation`
+- **Tool origins in CDP mode**: `WebMCP.Tool` has no origin, so each tool's `origin` is filled in from its frame's security origin (`Page.getFrameTree` and `Page.frameNavigated`). The spec expects agents to be shown each tool's origin
+- **`document.modelContext` fallback**: When the CDP domain is unavailable, discovery uses `document.modelContext.getTools()` plus the `toolchange` event and execution uses `executeTool(registeredTool, inputObject)`. The legacy `navigator.modelContextTesting` path remains for Chrome ≤151
+- **Richer tool metadata**: New `WebMCPDiscoveredTool` type (a superset of `DiscoveredTool`) with `title`, full `annotations` (`readOnlyHint`, `untrustedContentHint`, `consequentialHint`, `debugging`, plus Chromium's `autosubmit`), `origin`, `frameId` and `backendNodeId`
+- `fromCdpTool()` helper exported to map CDP `WebMCP.Tool` objects
+- **Chrome 153 compatibility**: the fallback accepts `inputSchema` as either an object (spec) or a JSON string (current Chrome), and retries `executeTool()` with a JSON string input when Chrome rejects the spec's object form. Verified end to end against Chrome 153.0.8010.12 in both CDP and `document.modelContext` modes
+
+### Spec alignment
+
+- `listTools()` from `navigator.modelContextTesting` and the string-based `executeTool(name, json)` are gone from both the spec and Chrome; the spec's `executeTool()` takes a `RegisteredTool` and an input object
+- `readOnlyHint` is still surfaced at the top level for existing consumers, now derived from `annotations`
+
+
 ## 0.2.0 (2026-03-04)
 
 ### Features

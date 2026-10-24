@@ -1,6 +1,6 @@
 {
   "name": "@tech-sumit/webmcp-cdp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Node.js library for WebMCP tool discovery and execution via Chrome DevTools Protocol",
   "type": "module",
   "main": "./dist/index.cjs",

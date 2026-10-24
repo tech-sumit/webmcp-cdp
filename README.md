@@ -4,11 +4,23 @@ A standalone Node.js library for discovering and executing WebMCP tools in Chrom
 
 ## Requirements
 
-Chrome launched with:
+Chrome 149+ launched with remote debugging and WebMCP enabled:
 
 ```bash
-chrome --remote-debugging-port=9222 --enable-features=WebMCPTesting
+chrome --remote-debugging-port=9222 --enable-features=WebMCPTesting,DevToolsWebMCPSupport
 ```
+
+(For local development you can instead enable `chrome://flags/#enable-webmcp-testing`.)
+
+## How it works
+
+| Browser support | Discovery | Execution |
+|---|---|---|
+| CDP `WebMCP` domain (current Chrome) | `WebMCP.enable` → `WebMCP.toolsAdded` / `toolsRemoved` | `WebMCP.invokeTool` → `WebMCP.toolResponded`, cancel with `WebMCP.cancelInvocation` |
+| No CDP domain, spec API | `document.modelContext.getTools()` + `toolchange` event | `document.modelContext.executeTool(tool, input)` |
+| Legacy Chrome (≤151) | `navigator.modelContextTesting.listTools()` | `navigator.modelContextTesting.executeTool(name, json)` |
+
+The best available mechanism is chosen per tab automatically.
 
 ## Installation
 
@@ -27,12 +39,19 @@ await source.connect({ host: "localhost", port: 9222 });
 // List all tools from all tabs
 const tools = source.listTools();
 console.log(tools);
-// [{ name: "searchFlights", description: "...", inputSchema: "{...}" }]
+// [{ name: "searchFlights", title: "Search flights", description: "...", inputSchema: "{...}",
+//    annotations: { readOnlyHint: true, untrustedContentHint: false, consequentialHint: false, debugging: false },
+//    frameId: "..." }]
 
-// Execute a tool (args and result are JSON strings per WebMCP spec)
+// Execute a tool (args are a JSON-encoded object; the result is the JSON string the tool produced)
 const result = await source.callTool("searchFlights", '{"from":"SFO","to":"JFK"}');
 console.log(result);
-// '{"flights":[...]}'
+// [{ type: "text", text: '{"flights":[...]}' }]
+
+// Cancel a long-running invocation
+const controller = new AbortController();
+source.callTool("bookFlight", "{}", { signal: controller.signal });
+controller.abort();
 
 // Listen for tool changes
 source.onToolsChanged((tools) => {
@@ -54,7 +73,7 @@ Implements the `ToolSource` interface from `@tech-sumit/ai-inspector-types`.
 | `connect(config?)` | Connect to Chrome via CDP |
 | `disconnect()` | Disconnect all sessions |
 | `listTools()` | List all discovered tools |
-| `callTool(name, args)` | Execute a tool |
+| `callTool(name, args, { signal }?)` | Execute a tool; aborting `signal` cancels it |
 | `onToolsChanged(cb)` | Register change listener |
 | `isConnected()` | Check connection status |
 
