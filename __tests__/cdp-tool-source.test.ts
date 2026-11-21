@@ -296,6 +296,73 @@ describe("CdpToolSource (CDP WebMCP domain)", () => {
   });
 });
 
+describe("CdpToolSource (CDP WebMCP domain with toolId)", () => {
+  const cdpTool = {
+    toolId: "tid-1",
+    name: "book_table",
+    description: "Book a table",
+    outputSchema: { type: "object", properties: { confirmed: { type: "boolean" } } },
+    frameId: "frame1",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockClient.send.mockImplementation(async (method: string) => {
+      if (method === "WebMCP.enable") {
+        queueMicrotask(() =>
+          handler<{ tools: unknown[] }>("WebMCP.toolsAdded")({ tools: [cdpTool] }),
+        );
+        return {};
+      }
+      if (method === "WebMCP.invokeTool") return { invocationId: "inv2" };
+      return {};
+    });
+  });
+
+  it("should surface toolId and outputSchema and invoke by toolId", async () => {
+    const source = new CdpToolSource();
+    await source.connect();
+    await Promise.resolve();
+
+    expect(source.listTools()[0]).toMatchObject({
+      toolId: "tid-1",
+      outputSchema: JSON.stringify(cdpTool.outputSchema),
+    });
+
+    const pending = source.callTool("book_table", "{}");
+    await vi.waitFor(() =>
+      expect(mockClient.send).toHaveBeenCalledWith("WebMCP.invokeTool", {
+        frameId: "frame1",
+        toolId: "tid-1",
+        input: {},
+      }),
+    );
+    handler<unknown>("WebMCP.toolResponded")({
+      invocationId: "inv2",
+      status: "Completed",
+      output: "ok",
+    });
+    await expect(pending).resolves.toEqual([{ type: "text", text: "ok" }]);
+  });
+
+  it("should remove only the registration matching toolId", async () => {
+    const source = new CdpToolSource();
+    await source.connect();
+    await Promise.resolve();
+
+    // A stale removal for an older registration of the same name is ignored
+    handler<{ tools: unknown[] }>("WebMCP.toolsRemoved")({
+      tools: [{ toolId: "tid-0", name: "book_table", frameId: "frame1" }],
+    });
+    expect(source.listTools()).toHaveLength(1);
+
+    handler<{ tools: unknown[] }>("WebMCP.toolsRemoved")({
+      tools: [{ toolId: "tid-1", name: "book_table", frameId: "frame1" }],
+    });
+    expect(source.listTools()).toHaveLength(0);
+  });
+});
+
 describe("fromCdpTool", () => {
   it("should leave inputSchema empty and omit annotations when absent", () => {
     expect(fromCdpTool({ name: "t", description: "d", frameId: "f" })).toEqual({

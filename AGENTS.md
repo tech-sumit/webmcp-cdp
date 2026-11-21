@@ -5,11 +5,11 @@ Node.js library for WebMCP tool discovery/execution via Chrome DevTools Protocol
 ## Key patterns
 - Uses chrome-remote-interface (NOT Playwright) for CDP
 - ToolSource interface from @tech-sumit/ai-inspector-types
-- Tool discovery prefers the native CDP `WebMCP` domain: `WebMCP.enable` + `WebMCP.toolsAdded` / `WebMCP.toolsRemoved` (tools keyed by frameId + name).
-- Tool execution in CDP mode: `WebMCP.invokeTool({frameId, toolName, input})` → wait for `WebMCP.toolResponded` with the same `invocationId`; aborting calls `WebMCP.cancelInvocation`.
+- Tool discovery prefers the native CDP `WebMCP` domain: `WebMCP.enable` + `WebMCP.toolsAdded` / `WebMCP.toolsRemoved` (tools keyed by `toolId`, or frameId + name on Chrome ≤153).
+- Tool execution in CDP mode: `WebMCP.invokeTool({frameId, toolId | toolName, input})` (prefer `toolId` when Chromium reports one; `toolName` is deprecated but all Chrome ≤153 supports) → wait for `WebMCP.toolResponded` with the same `invocationId`; aborting calls `WebMCP.cancelInvocation`.
 - Fallback (no CDP domain): `Runtime.evaluate` of `document.modelContext.getTools()` / `executeTool(tool, inputObject)` with the `toolchange` event, then legacy `navigator.modelContextTesting` (removed in Chrome 152+).
 - Fallback change detection uses `Runtime.addBinding("__webmcpToolsChanged")` + `Runtime.bindingCalled` event.
-- `DiscoveredTool.inputSchema` stays a JSON string for compatibility; `WebMCPDiscoveredTool` adds `title`, `annotations`, `origin`, `frameId`.
+- `DiscoveredTool.inputSchema` stays a JSON string for compatibility; `WebMCPDiscoveredTool` adds `title`, `annotations`, `origin`, `frameId`, `outputSchema` (JSON string) and `toolId`.
 - Multi-tab: iterate CDP.List() targets, attach to each page
 
 ## Architecture

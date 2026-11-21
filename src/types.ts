@@ -15,17 +15,24 @@ export interface WebMCPToolAnnotations {
 
 /**
  * A discovered tool, extending the shared `DiscoveredTool` with the fields
- * the current spec's `RegisteredTool` dictionary and the CDP `WebMCP.Tool`
+ * the current spec's `Tool` interface and the CDP `WebMCP.Tool`
  * type expose. All additions are optional, so it stays assignable to
  * `DiscoveredTool`.
  */
 export interface WebMCPDiscoveredTool extends DiscoveredTool {
-  /** Human-readable label (`RegisteredTool.title`). */
+  /** Human-readable label (`Tool.title`). */
   title?: string;
-  /** Full annotations (`RegisteredTool.annotations`). */
+  /** Full annotations (`Tool.annotations`). */
   annotations?: WebMCPToolAnnotations;
-  /** Serialized origin of the registering document (`RegisteredTool.origin`). */
+  /** Serialized origin of the registering document (`Tool.origin`). */
   origin?: string;
+  /** JSON-stringified output JSON Schema (`Tool.outputSchema`), when provided. */
+  outputSchema?: string;
+  /**
+   * CDP `WebMCP.ToolId`: identifies this exact registration. Newer Chromium
+   * only; when set, execution targets it instead of the name.
+   */
+  toolId?: string;
   /** CDP frame that registered the tool. */
   frameId?: string;
   /** Set for declarative (form-based) tools discovered via CDP. */

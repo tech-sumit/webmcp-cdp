@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 (2026-11-21)
+
+Tracks the November 2026 WebMCP draft (`Tool` interface, `outputSchema`) and the matching CDP `WebMCP` domain changes.
+
+### Features
+
+- **`outputSchema`**: tools that declare an output JSON Schema now carry it as `outputSchema` (a JSON string, like `inputSchema`) in both CDP and `document.modelContext` modes
+- **Per-registration tool ids**: when Chromium reports `WebMCP.Tool.toolId`, tools are keyed by it and `callTool()` invokes `WebMCP.invokeTool({ toolId })`, so a tool that was unregistered and re-registered under the same name is never executed with the old caller's arguments. Chrome ≤153 has no `toolId`, so the `frameId` + `toolName` path stays as a fallback
+- `toolsRemoved` removes only the registration it names when a `toolId` is present
+- `devtools-protocol` bumped to `0.0.1751165`
+
+
 ## 0.3.0 (2026-10-23)
 
 Aligns with the October 2026 WebMCP draft and Chromium, which removed `navigator.modelContextTesting` in Chrome 152.
