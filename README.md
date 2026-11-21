@@ -40,8 +40,9 @@ await source.connect({ host: "localhost", port: 9222 });
 const tools = source.listTools();
 console.log(tools);
 // [{ name: "searchFlights", title: "Search flights", description: "...", inputSchema: "{...}",
+//    outputSchema: "{...}", // when the tool declares one
 //    annotations: { readOnlyHint: true, untrustedContentHint: false, consequentialHint: false, debugging: false },
-//    frameId: "..." }]
+//    frameId: "...", toolId: "..." /* newer Chromium only */ }]
 
 // Execute a tool (args are a JSON-encoded object; the result is the JSON string the tool produced)
 const result = await source.callTool("searchFlights", '{"from":"SFO","to":"JFK"}');

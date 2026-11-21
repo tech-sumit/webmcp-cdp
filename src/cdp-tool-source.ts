@@ -17,9 +17,12 @@ type CDPClient = CDP.Client;
 
 /** `WebMCP.Tool` from the experimental CDP WebMCP domain. */
 interface CdpWebMCPTool {
+  /** Opaque per-registration id (newer Chromium; absent on Chrome <= 153). */
+  toolId?: string;
   name: string;
   description: string;
   inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
   annotations?: {
     readOnly?: boolean;
     untrustedContent?: boolean;
@@ -70,12 +73,22 @@ export function fromCdpTool(t: CdpWebMCPTool, origin?: string): WebMCPDiscovered
     name: t.name,
     description: t.description,
     inputSchema: t.inputSchema ? JSON.stringify(t.inputSchema) : "",
+    ...(t.outputSchema && { outputSchema: JSON.stringify(t.outputSchema) }),
     frameId: t.frameId,
+    ...(t.toolId && { toolId: t.toolId }),
     // Spec: agents should be shown each tool's origin to avoid confusion.
     ...(origin && { origin }),
     ...(t.backendNodeId != null && { backendNodeId: t.backendNodeId }),
     ...(annotations && { annotations, readOnlyHint: annotations.readOnlyHint }),
   };
+}
+
+/**
+ * Key for a CDP-discovered tool. Prefer the per-registration `toolId`; older
+ * Chromium only identifies tools by frame + name.
+ */
+export function cdpToolKey(t: { toolId?: string; name: string; frameId: string }): string {
+  return t.toolId ? `id\u0000${t.toolId}` : `${t.frameId}\u0000${t.name}`;
 }
 
 /** Stringify a tool result the same way `ModelContext.executeTool()` does. */
@@ -102,7 +115,7 @@ export class CdpToolSource implements ToolSource {
   private changeListeners = new Set<(tools: WebMCPDiscoveredTool[]) => void>();
   private connected = false;
   private config: { host: string; port: number } = { host: "localhost", port: 9222 };
-  /** Native-mode tools per target, keyed by `${frameId}\u0000${name}`. */
+  /** Native-mode tools per target, keyed by {@link cdpToolKey}. */
   private cdpTools = new Map<string, Map<string, WebMCPDiscoveredTool>>();
   private pendingInvocations = new Map<string, PendingInvocation>();
   /** `toolResponded` events that arrived before `invokeTool` returned. */
@@ -148,6 +161,7 @@ export class CdpToolSource implements ToolSource {
         description: t.description,
         // Spec: object. Chrome 153 still returns the JSON string.
         inputSchema: t.inputSchema == null ? "" : typeof t.inputSchema === "string" ? t.inputSchema : JSON.stringify(t.inputSchema),
+        ...(t.outputSchema != null ? { outputSchema: typeof t.outputSchema === "string" ? t.outputSchema : JSON.stringify(t.outputSchema) } : {}),
         ...(t.title ? { title: t.title } : {}),
         ...(t.origin ? { origin: t.origin } : {}),
         ...(t.annotations ? { annotations: t.annotations, readOnlyHint: !!t.annotations.readOnlyHint } : {}),
@@ -217,16 +231,19 @@ export class CdpToolSource implements ToolSource {
     const c = client as any;
     c.on("WebMCP.toolsAdded", (params: { tools: CdpWebMCPTool[] }) => {
       for (const t of params.tools) {
-        tools.set(`${t.frameId}\u0000${t.name}`, fromCdpTool(t, frameOrigins.get(t.frameId)));
+        tools.set(cdpToolKey(t), fromCdpTool(t, frameOrigins.get(t.frameId)));
       }
       sync();
     });
-    c.on("WebMCP.toolsRemoved", (params: { tools: Array<{ name: string; frameId: string }> }) => {
-      for (const t of params.tools) {
-        tools.delete(`${t.frameId}\u0000${t.name}`);
-      }
-      sync();
-    });
+    c.on(
+      "WebMCP.toolsRemoved",
+      (params: { tools: Array<{ toolId?: string; name: string; frameId: string }> }) => {
+        for (const t of params.tools) {
+          tools.delete(cdpToolKey(t));
+        }
+        sync();
+      },
+    );
     c.on("WebMCP.toolResponded", (params: CdpToolResponded) => {
       this.settleInvocation(params);
     });
@@ -296,7 +313,7 @@ export class CdpToolSource implements ToolSource {
       mode: "none",
     });
 
-    // Frame origins, so CDP-discovered tools carry `origin` like `RegisteredTool`
+    // Frame origins, so CDP-discovered tools carry `origin` like the spec's `Tool`
     const frameOrigins = new Map<string, string>();
     try {
       const { frameTree } = (await (client as any).send("Page.getFrameTree")) as {
@@ -432,7 +449,7 @@ export class CdpToolSource implements ToolSource {
       const text = await this.invokeViaCdp(
         target.client,
         tool?.frameId ?? "",
-        name,
+        tool?.toolId ? { toolId: tool.toolId } : { toolName: name },
         inputArguments,
         options.signal,
       );
@@ -465,7 +482,9 @@ export class CdpToolSource implements ToolSource {
   private async invokeViaCdp(
     client: CDPClient,
     frameId: string,
-    toolName: string,
+    // Exactly one of toolId / toolName. `toolName` is deprecated in CDP but is
+    // all Chrome <= 153 understands.
+    tool: { toolId: string } | { toolName: string },
     inputArguments: string,
     signal?: AbortSignal,
   ): Promise<string> {
@@ -481,7 +500,7 @@ export class CdpToolSource implements ToolSource {
     const c = client as any;
     const { invocationId } = (await c.send("WebMCP.invokeTool", {
       frameId,
-      toolName,
+      ...tool,
       input: input ?? {},
     })) as { invocationId: string };
 
